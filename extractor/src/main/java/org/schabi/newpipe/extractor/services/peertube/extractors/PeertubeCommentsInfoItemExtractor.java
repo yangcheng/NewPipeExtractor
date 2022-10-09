@@ -4,6 +4,7 @@ import com.grack.nanojson.JsonObject;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.schabi.newpipe.extractor.Page;
 import org.schabi.newpipe.extractor.ServiceList;
 import org.schabi.newpipe.extractor.comments.CommentsInfoItemExtractor;
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
@@ -28,7 +29,7 @@ public class PeertubeCommentsInfoItemExtractor implements CommentsInfoItemExtrac
 
     @Override
     public String getUrl() throws ParsingException {
-        return url;
+        return url + "/" + getCommentId();
     }
 
     @Override
@@ -97,5 +98,20 @@ public class PeertubeCommentsInfoItemExtractor implements CommentsInfoItemExtrac
         final String host = JsonUtils.getString(item, "account.host");
         return ServiceList.PeerTube.getChannelLHFactory()
                 .fromId("accounts/" + name + "@" + host, baseUrl).getUrl();
+    }
+
+    @Override
+    public Page getReplies() throws ParsingException {
+        if (JsonUtils.getNumber(item, "totalReplies").intValue() == 0) {
+            return null;
+        }
+        final String threadId = JsonUtils.getNumber(item, "threadId").toString();
+        //final String threadUrl = JsonUtils.getString(item, "url");
+        return new Page(url + "/" + threadId, threadId);
+    }
+    @Override
+    public int getReplyCount() throws ParsingException {
+        final int s = JsonUtils.getNumber(item, "totalReplies").intValue();
+        return s;
     }
 }
