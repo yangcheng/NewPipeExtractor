@@ -98,13 +98,18 @@ public class SoundcloudCommentsInfoItemExtractor implements CommentsInfoItemExtr
     @Override
     public Page getReplies() {
         final CommentsInfoItemsCollector collector = new CommentsInfoItemsCollector(ServiceList.SoundCloud.getServiceId());
+
+        // Replies start with the mention of the user who created the comment that is replies to.
+        final String mention = "@" + item.getObject("user").getString("permalink");
+        // Loop through all comments which come after this comment to find the replies to this comment.
         for (int i = index + 1; i < allItems.size(); i++) {
             final JsonObject comment = allItems.getObject(i);
-            if (comment.getString("body").startsWith("@user-")) {
+            final String commentContent = comment.getString("body");
+            if (commentContent.startsWith(mention)) {
                 collector.commit(new SoundcloudCommentsInfoItemExtractor(allItems, i, comment, url));
-            } else {
+            } else if (!commentContent.startsWith("@") || collector.getItems().isEmpty()) {
                 // Only the comments directly after the original comment
-                // starting with "@user-" are replies to this comment.
+                // starting with the mention of the comment's creator are replies to that comment.
                 // The first comment not starting with these letters is the next top-level comment.
                 break;
             }
