@@ -123,6 +123,7 @@ public class SoundcloudCommentsInfoItemExtractor implements CommentsInfoItemExtr
     
     @Override
     public int getReplyCount() throws ParsingException {
-        return item.getInt("");
+        // TODO: compute from the results of getReplies()
+        return CommentsInfoItem.UNKNOWN_REPLY_COUNT;
     }
 }
