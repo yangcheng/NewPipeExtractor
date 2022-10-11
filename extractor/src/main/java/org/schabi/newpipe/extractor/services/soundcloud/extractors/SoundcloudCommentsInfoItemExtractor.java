@@ -1,61 +1,77 @@
 package org.schabi.newpipe.extractor.services.soundcloud.extractors;
 
+import com.grack.nanojson.JsonArray;
 import com.grack.nanojson.JsonObject;
+
+import org.schabi.newpipe.extractor.ListExtractor;
+import org.schabi.newpipe.extractor.NewPipe;
+import org.schabi.newpipe.extractor.Page;
+import org.schabi.newpipe.extractor.ServiceList;
+import org.schabi.newpipe.extractor.comments.CommentsInfoItem;
 import org.schabi.newpipe.extractor.comments.CommentsInfoItemExtractor;
+import org.schabi.newpipe.extractor.comments.CommentsInfoItemsCollector;
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.localization.DateWrapper;
 import org.schabi.newpipe.extractor.services.soundcloud.SoundcloudParsingHelper;
 
 import javax.annotation.Nullable;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 public class SoundcloudCommentsInfoItemExtractor implements CommentsInfoItemExtractor {
-    private final JsonObject json;
+    private final JsonArray allItems;
+    private final int index;
+    private final JsonObject item;
     private final String url;
 
-    public SoundcloudCommentsInfoItemExtractor(final JsonObject json, final String url) {
-        this.json = json;
+    public SoundcloudCommentsInfoItemExtractor(final JsonArray allItems, final int index, final JsonObject item, final String url) {
+        this.allItems = allItems;
+        this.index = index;
+        this.item = item;
         this.url = url;
     }
 
     @Override
     public String getCommentId() {
-        return Objects.toString(json.getLong("id"), null);
+        return Objects.toString(item.getLong("id"), null);
     }
 
     @Override
     public String getCommentText() {
-        return json.getString("body");
+        return item.getString("body");
     }
 
     @Override
     public String getUploaderName() {
-        return json.getObject("user").getString("username");
+        return item.getObject("user").getString("username");
     }
 
     @Override
     public String getUploaderAvatarUrl() {
-        return json.getObject("user").getString("avatar_url");
+        return item.getObject("user").getString("avatar_url");
     }
 
     @Override
     public boolean isUploaderVerified() throws ParsingException {
-        return json.getObject("user").getBoolean("verified");
+        return item.getObject("user").getBoolean("verified");
     }
 
     @Override
     public int getStreamPosition() throws ParsingException {
-        return json.getInt("timestamp") / 1000; // convert milliseconds to seconds
+        return item.getInt("timestamp") / 1000; // convert milliseconds to seconds
     }
 
     @Override
     public String getUploaderUrl() {
-        return json.getObject("user").getString("permalink_url");
+        return item.getObject("user").getString("permalink_url");
     }
 
     @Override
     public String getTextualUploadDate() {
-        return json.getString("created_at");
+        return item.getString("created_at");
     }
 
     @Nullable
@@ -66,7 +82,7 @@ public class SoundcloudCommentsInfoItemExtractor implements CommentsInfoItemExtr
 
     @Override
     public String getName() throws ParsingException {
-        return json.getObject("user").getString("permalink");
+        return item.getObject("user").getString("permalink");
     }
 
     @Override
@@ -76,6 +92,32 @@ public class SoundcloudCommentsInfoItemExtractor implements CommentsInfoItemExtr
 
     @Override
     public String getThumbnailUrl() {
-        return json.getObject("user").getString("avatar_url");
+        return item.getObject("user").getString("avatar_url");
+    }
+
+    @Override
+    public Page getReplies() {
+        final CommentsInfoItemsCollector collector = new CommentsInfoItemsCollector(ServiceList.SoundCloud.getServiceId());
+        for (int i = index + 1; i < allItems.size(); i++) {
+            final JsonObject comment = allItems.getObject(i);
+            if (comment.getString("body").startsWith("@user-")) {
+                collector.commit(new SoundcloudCommentsInfoItemExtractor(allItems, i, comment, url));
+            } else {
+                // Only the comments directly after the original comment
+                // starting with "@user-" are replies to this comment.
+                // The first comment not starting with these letters is the next top-level comment.
+                break;
+            }
+        }
+        if (collector.getItems().isEmpty()) {
+            return null;
+        }
+        return new ListExtractor.InfoItemsPage<CommentsInfoItem>(collector, null);
+        //return new ListExtractor.InfoItemsPage<CommentsInfoItem>(replies, null, Collections.emptyList());
+    }
+    
+    @Override
+    public int getReplyCount() throws ParsingException {
+        return item.getInt("");
     }
 }
